@@ -84,64 +84,10 @@ public class RouteFinder {
         return new RouteResult(path, legTimes, shortestTimes[endLocation]);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // APPROACH 2: PRECOMPUTED (inactive — uncomment to use)
-    // Runs Dijkstra once from every node at startup, caches all results
-    // Any query becomes O(1) — just read from the cached arrays
-    // Good for: small fixed networks (this project: 10 Lahore nodes)
-    // NOT feasible for real cities — millions of nodes = too much memory
-    //
-    // To switch: uncomment everything below + storage fields at top,
-    // call RouteFinder.precompute(graph.adjList, graph.numNodes) in Main,
-    // then call RouteFinder.findShortestRoute(source, dest) — no graph param needed
-    // ═══════════════════════════════════════════════════════════════
 
-    // static int[][] allShortestTimes;
-    // static int[][] allPreviousLocations;
-
-    // public static void precompute(Map<Integer, List<int[]>> graph, int totalLocations) {
-    //     allShortestTimes     = new int[totalLocations][totalLocations];
-    //     allPreviousLocations = new int[totalLocations][totalLocations];
-    //
-    //     for (int source = 0; source < totalLocations; source++) {
-    //         int[] times    = new int[totalLocations];
-    //         int[] previous = new int[totalLocations];
-    //         Arrays.fill(times, Integer.MAX_VALUE);
-    //         Arrays.fill(previous, -1);
-    //         times[source] = 0;
-    //
-    //         PriorityQueue<int[]> minHeap = new PriorityQueue<>(Comparator.comparingInt(a -> a[1]));
-    //         minHeap.offer(new int[]{source, 0});
-    //
-    //         while (!minHeap.isEmpty()) {
-    //             int[] cur  = minHeap.poll();
-    //             int node   = cur[0];
-    //             int time   = cur[1];
-    //             if (time > times[node]) continue;
-    //             if (graph.containsKey(node)) {
-    //                 for (int[] edge : graph.get(node)) {
-    //                     int potential = times[node] + edge[1];
-    //                     if (potential < times[edge[0]]) {
-    //                         times[edge[0]]    = potential;
-    //                         previous[edge[0]] = node;
-    //                         minHeap.offer(new int[]{edge[0], potential});
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         allShortestTimes[source]     = times;
-    //         allPreviousLocations[source] = previous;
-    //     }
-    // }
-
-    // public static RouteResult findShortestRoute(int startLocation, int endLocation) {
-    //     List<Integer> path     = reconstructPath(startLocation, endLocation, allPreviousLocations[startLocation]);
-    //     List<Integer> legTimes = computeLegTimes(path, allShortestTimes[startLocation]);
-    //     return new RouteResult(path, legTimes, allShortestTimes[startLocation][endLocation]);
-    // }
 
     // ═══════════════════════════════════════════════════════════════
-    // SHARED HELPERS — used by both approaches
+    // HELPERS
     // ═══════════════════════════════════════════════════════════════
 
     // Per-leg time = cumulative time at node[i] minus cumulative time at node[i-1]
