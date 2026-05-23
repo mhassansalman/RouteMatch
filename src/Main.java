@@ -2,6 +2,8 @@ import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
+
+        // Build Lahore's road network
         Graph graph = new Graph(10);
 
         graph.addNode(0, "Gulberg", 3, 4);
@@ -32,41 +34,41 @@ public class Main {
 
         graph.printGraph();
 
+        // Get rider's source and destination
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enter source ID: ");
         int source = scanner.nextInt();
         System.out.print("Enter destination ID: ");
         int dest = scanner.nextInt();
 
+        // Find and display shortest route
         RouteFinder.RouteResult result = RouteFinder.findShortestRoute(graph.adjList, source, dest, graph.numNodes);
-        printPath(result.path, result.shortestTimes, dest, graph);
+        printPath(result, graph);
     }
 
-    static void printPath(List<Integer> path, int[] shortestTimes, int dest, Graph graph) {
-        if (path.isEmpty()) {
+    // Prints path with per-leg times and total journey time
+    static void printPath(RouteFinder.RouteResult result, Graph graph) {
+        if (result.path.isEmpty()) {
             System.out.println("No path found.");
             return;
         }
 
-        int totalTime = shortestTimes[dest]; // O(1) — no loop needed
-
         System.out.print("Shortest path: ");
-        for (int i = 0; i < path.size(); i++) {
-            System.out.print(graph.nodes[path.get(i)].name);
-            if (i < path.size() - 1)
-                System.out.print(" → ");
+        for (int i = 0; i < result.path.size(); i++) {
+            System.out.print(graph.nodes[result.path.get(i)].name);
+            if (i < result.path.size() - 1)
+                System.out.print(" →(" + result.legTimes.get(i) + "min)→ ");
         }
-
-        System.out.println(" | Total: " + totalTime + " min");
+        System.out.println(" | Total: " + result.totalTime + " min");
     }
-
 }
+
 
 class Node {
     int id;
     String name;
-    int x;
-    int y;
+    int x; // grid x coordinate — used later for spatial filtering
+    int y; // grid y coordinate — used later for spatial filtering
 
     Node(int id, String name, int x, int y) {
         this.id = id;
@@ -76,15 +78,16 @@ class Node {
     }
 }
 
+
 class Graph {
     int numNodes;
     Node[] nodes;
-    Map<Integer, List<int[]>> adjList;
+    Map<Integer, List<int[]>> adjList; // node ID → list of [neighborID, travelTime]
 
     Graph(int n) {
         this.numNodes = n;
-        this.nodes = new Node[n];
-        this.adjList = new HashMap<>();
+        this.nodes    = new Node[n];
+        this.adjList  = new HashMap<>();
         for (int i = 0; i < n; i++)
             adjList.put(i, new ArrayList<>());
     }
@@ -93,11 +96,13 @@ class Graph {
         nodes[id] = new Node(id, name, x, y);
     }
 
+    // Undirected — adds road in both directions
     void addEdge(int from, int to, int weight) {
         adjList.get(from).add(new int[]{to, weight});
         adjList.get(to).add(new int[]{from, weight});
     }
 
+    // O(V + E) — visits every node and every edge exactly once
     void printGraph() {
         for (int i = 0; i < numNodes; i++) {
             System.out.print(nodes[i].name + " → ");
@@ -107,7 +112,3 @@ class Graph {
         }
     }
 }
-
-
-
-
