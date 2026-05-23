@@ -1,21 +1,23 @@
 import java.util.*;
 
+import java.util.*;
+
 public class Main {
     public static void main(String[] args) {
 
         // Build Lahore's road network
         Graph graph = new Graph(10);
 
-        graph.addNode(0, "Gulberg", 3, 4);
-        graph.addNode(1, "DHA", 1, 2);
-        graph.addNode(2, "Johar Town", 2, 4);
-        graph.addNode(3, "Model Town", 2, 5);
-        graph.addNode(4, "Bahria Town", 0, 3);
-        graph.addNode(5, "Airport", 5, 1);
-        graph.addNode(6, "Anarkali", 4, 6);
-        graph.addNode(7, "Shadman", 3, 5);
+        graph.addNode(0, "Gulberg",        3, 4);
+        graph.addNode(1, "DHA",            1, 2);
+        graph.addNode(2, "Johar Town",     2, 4);
+        graph.addNode(3, "Model Town",     2, 5);
+        graph.addNode(4, "Bahria Town",    0, 3);
+        graph.addNode(5, "Airport",        5, 1);
+        graph.addNode(6, "Anarkali",       4, 6);
+        graph.addNode(7, "Shadman",        3, 5);
         graph.addNode(8, "Cavalry Ground", 4, 3);
-        graph.addNode(9, "Cantt", 4, 2);
+        graph.addNode(9, "Cantt",          4, 2);
 
         graph.addEdge(0, 1, 15);
         graph.addEdge(0, 2, 10);
@@ -34,6 +36,28 @@ public class Main {
 
         graph.printGraph();
 
+        // Hardcoded passenger requests — in production these load from MySQL
+        // (ride_requests table). Kept hardcoded here to isolate DSA logic.
+        List<Request> allRequests = new ArrayList<>();
+        allRequests.add(new Request(0, "Ali",    2, 5)); // Johar Town → Airport
+        allRequests.add(new Request(1, "Sara",   7, 5)); // Shadman → Airport
+        allRequests.add(new Request(2, "Bilal",  1, 9)); // DHA → Cantt
+        allRequests.add(new Request(3, "Fatima", 7, 9)); // Shadman → Cantt
+        allRequests.add(new Request(4, "Omar",   0, 3)); // Gulberg → Model Town
+        allRequests.add(new Request(5, "Zara",   4, 5)); // Bahria Town → Airport
+
+        // Pre-bucket requests by pickup cell into a spatial HashMap
+        // Room "x,y" → all requests whose pickup falls in that cell
+        // O(R) one-time setup — avoids O(R) scan on every future query
+        // Alternative: rebuild this every query (simpler, slower) — see no-fusion branch
+        Map<String, List<Request>> requestGrid = new HashMap<>();
+        for (Request req : allRequests) {
+            Node pickup = graph.nodes[req.pickupNode];
+            String cell = pickup.x + "," + pickup.y;
+            requestGrid.computeIfAbsent(cell, k -> new ArrayList<>()).add(req);
+        }
+
+
         // Get rider's source and destination
         Scanner scanner = new Scanner(System.in);
         System.out.print("Enter source ID: ");
@@ -41,9 +65,35 @@ public class Main {
         System.out.print("Enter destination ID: ");
         int dest = scanner.nextInt();
 
-        // Find and display shortest route
-        RouteFinder.RouteResult result = RouteFinder.findShortestRoute(graph.adjList, source, dest, graph.numNodes);
+        // Find shortest route — nodes[] passed for grid cell fusion in RouteFinder
+        RouteFinder.RouteResult result = RouteFinder.findShortestRoute(
+                graph.adjList, source, dest, graph.numNodes, graph.nodes);
+
+        // result.routeCells is now ready for GridFilter (Chunk 2)
+        int radius = 1; // 3×3 block — increase if too few results found
+        List<Request> shortlisted = GridFilter.filter(
+                requestGrid, result.routeCells, graph.nodes, radius);
+
+        printShortListedRequests(shortlisted, radius,graph);
+
+
         printPath(result, graph);
+
+
+
+
+    }
+    static void printShortListedRequests(List<Request> shortlisted, int radius, Graph graph) {
+        System.out.println("\n=== Shortlisted Requests (radius " + radius + ") ===");
+        if (shortlisted.isEmpty()) {
+            System.out.println("No nearby requests found. Try increasing radius.");
+        } else {
+            for (Request r : shortlisted)
+                System.out.println(r.passengerName
+                        + " | Pickup: "  + graph.nodes[r.pickupNode].name
+                        + " → Dropoff: " + graph.nodes[r.dropOffNode].name);
+        }
+
     }
 
     // Prints path with per-leg times and total journey time
@@ -62,7 +112,6 @@ public class Main {
         System.out.println(" | Total: " + result.totalTime + " min");
     }
 }
-
 
 class Node {
     int id;
