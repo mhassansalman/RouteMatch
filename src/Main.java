@@ -1,5 +1,6 @@
 import java.util.*;
 
+
 import java.util.*;
 
 public class Main {
@@ -49,14 +50,13 @@ public class Main {
         // Pre-bucket requests by pickup cell into a spatial HashMap
         // Room "x,y" → all requests whose pickup falls in that cell
         // O(R) one-time setup — avoids O(R) scan on every future query
-        // Alternative: rebuild this every query (simpler, slower) — see no-fusion branch
+        // Alternative: O(R) scan per query kept in no-prefilter branch
         Map<String, List<Request>> requestGrid = new HashMap<>();
         for (Request req : allRequests) {
             Node pickup = graph.nodes[req.pickupNode];
             String cell = pickup.x + "," + pickup.y;
             requestGrid.computeIfAbsent(cell, k -> new ArrayList<>()).add(req);
         }
-
 
         // Get rider's source and destination
         Scanner scanner = new Scanner(System.in);
@@ -65,41 +65,56 @@ public class Main {
         System.out.print("Enter destination ID: ");
         int dest = scanner.nextInt();
 
-        // Find shortest route — nodes[] passed for grid cell fusion in RouteFinder
+        // Chunk 1: find shortest route
+        // nodes[] passed for grid cell fusion inside RouteFinder
         RouteFinder.RouteResult result = RouteFinder.findShortestRoute(
                 graph.adjList, source, dest, graph.numNodes, graph.nodes);
-
-        // result.routeCells is now ready for GridFilter (Chunk 2)
-        int radius = 1; // 3×3 block — increase if too few results found
-        List<Request> shortlisted = GridFilter.filter(
-                requestGrid, result.routeCells, graph.nodes, radius);
-
-        printShortListedRequests(shortlisted, radius,graph);
-
-
         printPath(result, graph);
 
+        // Chunk 2: spatially filter requests near rider's route
+        // radius 1 = 3×3 block — expand if too few results found
+        int radius = 1;
+        List<Request> shortlisted = GridFilter.filter(
+                requestGrid, result.routeCells, graph.nodes, radius);
+        printShortlisted(shortlisted, radius, graph);
 
         // Chunk 3: score each shortlisted request by detour cost
+        // formula: score = 1 / (1 + detourCost) — range (0,1]
         RequestScorer.score(
-                shortlisted,
-                graph.adjList,
-                graph.numNodes,
-                source,
-                dest,
-                result.totalTime
-        );
+                shortlisted, graph.adjList, graph.numNodes,
+                source, dest, result.totalTime);
 
-// Print scores — debug output, removed after Chunk 4 heap ranking
-        System.out.println("\n=== Scored Requests ===");
-        for (Request r : shortlisted)
-            System.out.printf("%s | score: %.4f%n", r.passengerName, r.score);
-
-
-        // Chunk 4: rank shortlisted requests using Max-Heap
+        // Chunk 4: rank by score using Max-Heap — best match first
         List<Request> ranked = RequestRanker.rank(shortlisted);
+        printRanked(ranked, graph);
+    }
 
-        // Final output — rider sees best match first
+    // ── Output helpers ───────────────────────────────────────────
+
+    static void printPath(RouteFinder.RouteResult result, Graph graph) {
+        if (result.path.isEmpty()) { System.out.println("No path found."); return; }
+        System.out.print("\nRider's route: ");
+        for (int i = 0; i < result.path.size(); i++) {
+            System.out.print(graph.nodes[result.path.get(i)].name);
+            if (i < result.path.size() - 1)
+                System.out.print(" →(" + result.legTimes.get(i) + "min)→ ");
+        }
+        System.out.println(" | Total: " + result.totalTime + " min");
+    }
+
+    static void printShortlisted(List<Request> shortlisted, int radius, Graph graph) {
+        System.out.println("\n=== Nearby Requests (radius " + radius + ") ===");
+        if (shortlisted.isEmpty()) {
+            System.out.println("None found. Try increasing radius.");
+            return;
+        }
+        for (Request r : shortlisted)
+            System.out.println(r.passengerName
+                    + " | Pickup: "  + graph.nodes[r.pickupNode].name
+                    + " → Dropoff: " + graph.nodes[r.dropOffNode].name);
+    }
+
+    static void printRanked(List<Request> ranked, Graph graph) {
         System.out.println("\n=== Ranked Passenger Requests ===");
         int rank = 1;
         for (Request r : ranked)
@@ -109,39 +124,8 @@ public class Main {
                     graph.nodes[r.pickupNode].name,
                     graph.nodes[r.dropOffNode].name,
                     r.score);
-
-
-    }
-    static void printShortListedRequests(List<Request> shortlisted, int radius, Graph graph) {
-        System.out.println("\n=== Shortlisted Requests (radius " + radius + ") ===");
-        if (shortlisted.isEmpty()) {
-            System.out.println("No nearby requests found. Try increasing radius.");
-        } else {
-            for (Request r : shortlisted)
-                System.out.println(r.passengerName
-                        + " | Pickup: "  + graph.nodes[r.pickupNode].name
-                        + " → Dropoff: " + graph.nodes[r.dropOffNode].name);
-        }
-
-    }
-
-    // Prints path with per-leg times and total journey time
-    static void printPath(RouteFinder.RouteResult result, Graph graph) {
-        if (result.path.isEmpty()) {
-            System.out.println("No path found.");
-            return;
-        }
-
-        System.out.print("Shortest path: ");
-        for (int i = 0; i < result.path.size(); i++) {
-            System.out.print(graph.nodes[result.path.get(i)].name);
-            if (i < result.path.size() - 1)
-                System.out.print(" →(" + result.legTimes.get(i) + "min)→ ");
-        }
-        System.out.println(" | Total: " + result.totalTime + " min");
     }
 }
-
 class Node {
     int id;
     String name;
