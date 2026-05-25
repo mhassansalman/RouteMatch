@@ -3,49 +3,25 @@ import java.util.*;
 
 import java.util.*;
 
+import java.util.*;
+
 public class Main {
     public static void main(String[] args) {
 
-        // Build Lahore's road network
-        Graph graph = new Graph(10);
+        // Graph size read from nodes.csv — dynamic, no hardcoded size
+        Graph graph = new Graph();
 
-        graph.addNode(0, "Gulberg",        3, 4);
-        graph.addNode(1, "DHA",            1, 2);
-        graph.addNode(2, "Johar Town",     2, 4);
-        graph.addNode(3, "Model Town",     2, 5);
-        graph.addNode(4, "Bahria Town",    0, 3);
-        graph.addNode(5, "Airport",        5, 1);
-        graph.addNode(6, "Anarkali",       4, 6);
-        graph.addNode(7, "Shadman",        3, 5);
-        graph.addNode(8, "Cavalry Ground", 4, 3);
-        graph.addNode(9, "Cantt",          4, 2);
-
-        graph.addEdge(0, 1, 15);
-        graph.addEdge(0, 2, 10);
-        graph.addEdge(0, 7, 5);
-        graph.addEdge(1, 9, 8);
-        graph.addEdge(1, 4, 20);
-        graph.addEdge(2, 3, 7);
-        graph.addEdge(2, 7, 8);
-        graph.addEdge(3, 7, 6);
-        graph.addEdge(3, 6, 10);
-        graph.addEdge(5, 9, 12);
-        graph.addEdge(5, 8, 15);
-        graph.addEdge(6, 7, 8);
-        graph.addEdge(7, 8, 10);
-        graph.addEdge(8, 9, 7);
+        // Load road network from CSV — simulates a real city database.
+        // In production: nodes and edges load from MySQL locations/roads tables.
+        loadNodes("nodes.csv", graph);
+        loadEdges("edges.csv", graph);
 
         graph.printGraph();
 
-        // Hardcoded passenger requests — in production these load from MySQL
-        // (ride_requests table). Kept hardcoded here to isolate DSA logic.
-        List<Request> allRequests = new ArrayList<>();
-        allRequests.add(new Request(0, "Ali",    2, 5)); // Johar Town → Airport
-        allRequests.add(new Request(1, "Sara",   7, 5)); // Shadman → Airport
-        allRequests.add(new Request(2, "Bilal",  1, 9)); // DHA → Cantt
-        allRequests.add(new Request(3, "Fatima", 7, 9)); // Shadman → Cantt
-        allRequests.add(new Request(4, "Omar",   0, 3)); // Gulberg → Model Town
-        allRequests.add(new Request(5, "Zara",   4, 5)); // Bahria Town → Airport
+        // Load passenger requests from CSV — simulates a live request feed.
+        // In production: MySQL query on ride_requests table.
+        // CSV chosen here to keep DSA logic isolated from DB dependencies.
+        List<Request> allRequests = loadRequests("requests.csv");
 
         // Pre-bucket requests by pickup cell into a spatial HashMap
         // Room "x,y" → all requests whose pickup falls in that cell
@@ -89,6 +65,64 @@ public class Main {
         printRanked(ranked, graph);
     }
 
+    // ── Data loaders ─────────────────────────────────────────────
+
+    static void loadNodes(String filename, Graph graph) {
+        try (Scanner file = new Scanner(new java.io.File(filename))) {
+            // First line = node count — used to allocate Node[] upfront
+            // Keeps Node[] performance (O(1) index) while staying dynamic
+            int count = Integer.parseInt(file.nextLine().trim());
+            graph.initNodes(count);
+            file.nextLine(); // skip header
+            while (file.hasNextLine()) {
+                String[] p = file.nextLine().split(",");
+                graph.addNode(
+                        Integer.parseInt(p[0].trim()),
+                        p[1].trim(),
+                        Integer.parseInt(p[2].trim()),
+                        Integer.parseInt(p[3].trim())
+                );
+            }
+        } catch (java.io.FileNotFoundException e) {
+            System.out.println("nodes.csv not found.");
+        }
+    }
+
+    static void loadEdges(String filename, Graph graph) {
+        try (Scanner file = new Scanner(new java.io.File(filename))) {
+            file.nextLine(); // skip header
+            while (file.hasNextLine()) {
+                String[] p = file.nextLine().split(",");
+                graph.addEdge(
+                        Integer.parseInt(p[0].trim()),
+                        Integer.parseInt(p[1].trim()),
+                        Integer.parseInt(p[2].trim())
+                );
+            }
+        } catch (java.io.FileNotFoundException e) {
+            System.out.println("edges.csv not found.");
+        }
+    }
+
+    static List<Request> loadRequests(String filename) {
+        List<Request> requests = new ArrayList<>();
+        try (Scanner file = new Scanner(new java.io.File(filename))) {
+            file.nextLine(); // skip header
+            while (file.hasNextLine()) {
+                String[] p = file.nextLine().split(",");
+                requests.add(new Request(
+                        Integer.parseInt(p[0].trim()),
+                        p[1].trim(),
+                        Integer.parseInt(p[2].trim()),
+                        Integer.parseInt(p[3].trim())
+                ));
+            }
+        } catch (java.io.FileNotFoundException e) {
+            System.out.println("requests.csv not found — no requests loaded.");
+        }
+        return requests;
+    }
+
     // ── Output helpers ───────────────────────────────────────────
 
     static void printPath(RouteFinder.RouteResult result, Graph graph) {
@@ -125,8 +159,7 @@ public class Main {
                     graph.nodes[r.dropOffNode].name,
                     r.score);
     }
-}
-class Node {
+}class Node {
     int id;
     String name;
     int x; // grid x coordinate — used later for spatial filtering
@@ -146,11 +179,15 @@ class Graph {
     Node[] nodes;
     Map<Integer, List<int[]>> adjList; // node ID → list of [neighborID, travelTime]
 
-    Graph(int n) {
-        this.numNodes = n;
-        this.nodes    = new Node[n];
-        this.adjList  = new HashMap<>();
-        for (int i = 0; i < n; i++)
+    public Graph() {
+        this.adjList = new HashMap<>();
+    }
+
+
+    void initNodes(int count) {
+        this.nodes    = new Node[count];
+        this.numNodes = count;
+        for (int i = 0; i < count; i++)
             adjList.put(i, new ArrayList<>());
     }
 
