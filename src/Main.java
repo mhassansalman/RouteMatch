@@ -80,6 +80,35 @@ public class Main {
         printPath(result, graph);
 
 
+        // Chunk 3: score each shortlisted request by detour cost
+        RequestScorer.score(
+                shortlisted,
+                graph.adjList,
+                graph.numNodes,
+                source,
+                dest,
+                result.totalTime
+        );
+
+// Print scores — debug output, removed after Chunk 4 heap ranking
+        System.out.println("\n=== Scored Requests ===");
+        for (Request r : shortlisted)
+            System.out.printf("%s | score: %.4f%n", r.passengerName, r.score);
+
+
+        // Chunk 4: rank shortlisted requests using Max-Heap
+        List<Request> ranked = RequestRanker.rank(shortlisted);
+
+        // Final output — rider sees best match first
+        System.out.println("\n=== Ranked Passenger Requests ===");
+        int rank = 1;
+        for (Request r : ranked)
+            System.out.printf("#%d %s | Pickup: %s → Dropoff: %s | score: %.4f%n",
+                    rank++,
+                    r.passengerName,
+                    graph.nodes[r.pickupNode].name,
+                    graph.nodes[r.dropOffNode].name,
+                    r.score);
 
 
     }
