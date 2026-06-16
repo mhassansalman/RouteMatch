@@ -1,6 +1,6 @@
 # RouteMatch
 
-*Intelligent Ride com.routematch.Request Filter for **Riders  |**  DSA Course Project*
+*Intelligent Ride Request Filter for Riders  |  DSA Course Project*
 
 ## Description
 
@@ -8,26 +8,38 @@ inDrive shows riders all nearby passenger requests regardless of their own route
 
 ## Project Summary
 
-The rider inputs a source and destination. The system computes the optimal route using Dijkstra's algorithm on a weighted graph of Lahore's road network. All active passenger requests are then spatially pre-filtered using a 2D grid, scored by deviation from the rider's route, and ranked using a Max-Heap. The output is a terminal-displayed ranked list — best-aligned passengers first. The problem is real, the solution does not exist in the actual app, and every data structure has a distinct, non-redundant algorithmic role.
+The rider inputs a source and destination. The system computes the optimal route using Dijkstra's algorithm on a weighted graph of Lahore's road network. All active passenger requests are then spatially pre-filtered using a 2D grid, scored by deviation from the rider's route, and ranked using a Max-Heap. The core focus is pure DSA — every data structure has a distinct, non-redundant algorithmic role. From v5 onward, the project also includes a Spring Boot REST API and a web frontend with Trie-powered autocomplete.
+
+## Version History
+
+| **Tag** | **What was added** |
+| --- | --- |
+| v1 | Graph + Dijkstra — terminal input, shortest path output |
+| v2 | 2D Spatial Grid — pre-filter requests near route |
+| v3 | Scoring Engine + Max-Heap ranking |
+| v4 | CSV-based data loading — no DB dependency |
+| v5 | Spring Boot REST API + Trie autocomplete + Web frontend |
 
 ## Tech Stack
 
 | **Layer** | **Technology** |
 | --- | --- |
 | Language | Java |
-| Database | MySQL (via JDBC) |
+| Data | CSV files (nodes.csv, edges.csv, requests.csv) |
+| Backend | Spring Boot REST API |
+| Frontend | HTML, CSS, JavaScript |
 | Core Libraries | Java Collections Framework (`PriorityQueue`, `HashMap`, `ArrayList`) |
-| IDE | Any Java IDE (IntelliJ / Eclipse / VS Code) |
+| IDE | IntelliJ IDEA |
 
 ## Architecture
 
 ```
-MySQL Database
-    └── locations, roads, requests tables
+CSV Files (nodes, edges, requests)
+    └── loaded once at startup
           │
           ▼
-    com.routematch.Graph Builder
-    (adjacency list loaded from DB)
+    Graph Builder
+    (adjacency list)
           │
           ▼
     Dijkstra's Algorithm
@@ -46,66 +58,119 @@ MySQL Database
     (best match at top)
           │
           ▼
-    Terminal Output + ride_matches table
+    Spring Boot REST API
+    (/api/match → JSON response)
+          │
+          ▼
+    Web Frontend
+    (Trie autocomplete + ranked results table)
 ```
+
+## How to Run
+
+### Prerequisites
+- Java 17+
+- Maven
+
+### Steps
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/mhassansalman/RouteMatch.git
+cd RouteMatch
+
+# 2. Run the Spring Boot server
+mvn spring-boot:run
+```
+
+Then open your browser at:
+```
+http://localhost:8081
+```
+
+The CSV files (`nodes.csv`, `edges.csv`, `requests.csv`) must be in the project root — they are already included.
+
+---
 
 ## Data Structures
 
 | **Structure** | **Role** | **How / Where Used** |
 | --- | --- | --- |
-| com.routematch.Graph (Adjacency List) | Road network storage | Nodes are Lahore locations, edges are roads with travel time as weights. Dijkstra's algorithm runs on this graph to find the rider's optimal route A→B. |
-| Array | Route storage | Stores the rider's computed route as an ordered sequence of nodes [A, X1, X2 ... B] — the reference path against which every passenger request is scored. |
-| 2D Grid | Spatial pre-filtering | City divided into cells. Only requests whose pickup cell falls near the rider's route cells are shortlisted — avoids scoring thousands of irrelevant requests. |
-| Max-Heap (Priority Queue) | com.routematch.Request ranking | Each shortlisted request gets a favourability score based on pickup deviation, dropoff proximity, and total detour added. Heap keeps the best match accessible in O(log n). |
-| Queue | com.routematch.Graph traversal | BFS-based queue traversal of the graph when computing shortest detour paths for each candidate passenger request. |
+| Graph (Adjacency List) | Road network storage | Nodes are Lahore locations, edges are roads with travel time as weights. Dijkstra runs on this to find the rider's optimal route A→B. |
+| Array | Route storage | Stores the computed route as an ordered sequence of nodes [A, X1, X2 ... B] — reference path for scoring every request. |
+| 2D Spatial Grid (HashMap) | Spatial pre-filtering | City divided into grid cells. Only requests whose pickup cell falls near route cells are shortlisted — avoids scoring irrelevant requests. |
+| Max-Heap (Priority Queue) | Request ranking | Each shortlisted request scored by detour cost. Heap keeps best match accessible in O(log n), extracts ranked list in O(n log n). |
+| Trie | Location autocomplete | Prefix tree built from all location names. Each keystroke queries the Trie in O(prefix length) — powers the type-to-search input on the frontend. |
 
 ## Algorithms
 
 | **Algorithm** | **Purpose** | **How / Where Used** |
 | --- | --- | --- |
-| Dijkstra's Algorithm | Optimal route finding | Run on the weighted graph to compute the rider's shortest path A→B. Also re-run per shortlisted request to calculate exact detour cost. |
-| Breadth-First Search (BFS) | Shortest path traversal | Queue-based BFS traversal of the graph when computing detour paths for candidate requests alongside Dijkstra. |
-| Heap Insert / Extract-Max | Priority management | Each scored request inserted into Max-Heap in O(log n). Extract-Max returns the best-aligned passenger in O(1) for the rider's ranked display. |
-| Spatial Grid Mapping | Efficiency filtering | Maps each location coordinate to a 2D grid cell. Reduces candidate pool from all city-wide requests to only those near the rider's route before scoring. |
-
-## Database Schema
-
-| **Table** | **Contents** |
-| --- | --- |
-| `locations` | com.routematch.Node ID, name, latitude, longitude, grid cell |
-| `roads` | Edge ID, from_node, to_node, weight (travel time) |
-| `requests` | com.routematch.Request ID, passenger name, pickup_location_id, dropoff_location_id, timestamp |
-| `rides` | Rider source, destination, timestamp |
-| `ride_matches` | Ride ID, request ID, detour cost, favourability score, rank |
-
-## Build Order
-
-| **Chunk** | **Steps** | **Deliverable** |
-| --- | --- | --- |
-| 1 — Foundation | Define nodes & edges → build adjacency list → run Dijkstra's → store route array | Working path from A to B |
-| 2 — Filter | Divide city into grid → map requests to cells → compare with route cells → discard far requests | Shortlist of relevant requests only |
-| 3 — Score | Re-run Dijkstra per request → compute detour cost → calculate favourability score | Every request has a score |
-| 4 — Rank & Display | Insert scored requests into Max-Heap → extract in order → print ranked list → write to `ride_matches` | Full system working end to end |
+| Dijkstra's Algorithm | Optimal route finding | Run on weighted graph to compute rider's shortest path A→B. Re-run 3× per shortlisted request to calculate exact detour cost. |
+| Heap Insert / Extract-Max | Priority management | Each scored request inserted into Max-Heap in O(log n). Extract-Max returns best-aligned passenger first. |
+| Spatial Grid Mapping | Efficiency filtering | Maps each location to a 2D grid cell. Reduces candidate pool to only requests near the rider's route before scoring begins. |
+| Trie Prefix Search | Autocomplete | On each keystroke, traverses Trie from root following prefix characters — returns all matching location suggestions in O(prefix length). |
 
 ## Complexity
 
 | **Operation** | **Complexity** |
 | --- | --- |
 | Dijkstra's algorithm | O((V + E) log V) |
-| BFS traversal | O(V + E) |
 | Heap insert / extract | O(log n) |
 | Spatial grid lookup | O(1) per cell |
+| Trie insert | O(name length) |
+| Trie search | O(prefix length) |
 | Overall pipeline | O((V + E) log V) — dominated by Dijkstra |
-
-## Classes
-
-| **Class** | **Fields** | **Role** |
-| --- | --- | --- |
-| `com.routematch.Node` | `int id`, `String name`, `double x, y` | Represents a Lahore location |
-| `Edge` | `int to`, `int weight` | Represents a road between two nodes |
-| `com.routematch.Request` | `int pickup`, `int dropoff`, `double score` | Represents a passenger ride request |
-| `com.routematch.Graph` | `HashMap<Integer, List<Edge>>` | Stores the full road network |
 
 ---
 
-*Data Structures **&** Algorithms in **Java  |**  University of Central Punjab*
+## Classes
+
+### DSA
+
+| **Class** | **Role** |
+| --- | --- |
+| `Graph` | Adjacency list — stores the full road network. `HashMap<Integer, List<int[]>>` where each entry is `[neighborId, travelTime]`. |
+| `Node` | One location: `id`, `name`, grid coordinates `x`, `y`. |
+| `Request` | One passenger request: `pickupNode`, `dropOffNode`, `score` (set by scorer). |
+| `RouteFinder` | Dijkstra's algorithm — finds shortest route A→B. Also exposes `findShortestTime()` for scoring calls. Fuses grid cell collection into path reconstruction to avoid a second O(n) pass. |
+| `GridFilter` | 2D spatial pre-filter — expands route cells by radius, pulls matching requests from HashMap in O(1) per cell. |
+| `RequestScorer` | Scores each shortlisted request using `1 / (1 + detourCost)`. Runs 3 Dijkstra calls per request. |
+| `RequestRanker` | Max-Heap — inserts all scored requests, extracts in ranked order. Best match first. |
+| `LocationTrie` | Prefix Trie — built from all location names. `insert()` stores each location at every prefix node. `search(prefix)` returns all matching suggestions in O(prefix length). |
+
+### Backend
+
+| **Class** | **Role** |
+| --- | --- |
+| `RouteMatchApplication` | Spring Boot entry point — starts the server. |
+| `RouteMatchService` | Bridge between API and DSA logic — loads CSV data, runs the full pipeline, builds the response. |
+| `Main` | Standalone terminal runner — CSV loaders (`loadNodes`, `loadEdges`, `loadRequests`) reused by `RouteMatchService`. |
+
+### API (Controllers)
+
+| **Class** | **Role** |
+| --- | --- |
+| `MatchController` | `POST /api/match` — receives `sourceId` + `destinationId`, returns ranked match results. |
+| `LocationController` | `GET /api/locations` — returns all locations. `GET /api/locations/search?prefix=` — Trie-powered prefix search. |
+
+### DTOs
+
+| **Class** | **Role** |
+| --- | --- |
+| `LocationDTO` | `id` + `name` — sent to frontend for dropdown and Trie suggestions. |
+| `MatchRequestDTO` | Deserializes frontend POST body: `sourceId`, `destinationId`. |
+| `MatchResultDTO` | One ranked result row: rank, passenger name, pickup, dropoff, detour cost, score. |
+| `RouteResponseDTO` | Full API response: route path string, total time, match count, list of `MatchResultDTO`. |
+
+### Frontend
+
+| **File** | **Role** |
+| --- | --- |
+| `index.html` | Single page — source/destination inputs (dropdown + Trie search), results table. |
+| `script.js` | Calls `/api/locations/search` on each keystroke for Trie autocomplete. Calls `/api/match` on submit. Renders ranked results. |
+| `style.css` | Styling — form, table, autocomplete dropdown. |
+
+---
+
+*Data Structures & Algorithms in Java  |  University of Central Punjab*
