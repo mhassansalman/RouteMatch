@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RouteMatch</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <h1>RouteMatch</h1>
+    <p>Find best passenger requests for your route</p>
+
+    <div class="form-box">
+        <label>Source</label>
+        <select id="source">
+            <option value="">Select source</option>
+        </select>
+        <div class="autocomplete-wrapper">
+            <input type="text" id="sourceInput" placeholder="Or type to search..." oninput="onTrieInput('source')" autocomplete="off">
+            <ul id="sourceDropdown" class="suggestions"></ul>
+        </div>
+
+        <label>Destination</label>
+        <select id="destination">
+            <option value="">Select destination</option>
+        </select>
+        <div class="autocomplete-wrapper">
+            <input type="text" id="destinationInput" placeholder="Or type to search..." oninput="onTrieInput('destination')" autocomplete="off">
+            <ul id="destinationDropdown" class="suggestions"></ul>
+        </div>
+
+        <div class="buttons">
+            <button onclick="findMatches()">Find Best Matches</button>
+            <button class="clear" onclick="clearForm()">Clear</button>
+        </div>
+    </div>
+
+    <div id="message"></div>
+
+    <div id="routeInfo">
+        <strong>Rider's Route:</strong> <span id="routePath"></span><br>
+        <strong>Total Time:</strong> <span id="totalTime"></span> min &nbsp;|&nbsp;
+        <strong>Requests Nearby:</strong> <span id="matchCount"></span>
+    </div>
+
+    <table id="resultsTable">
+        <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Passenger</th>
+            <th>Pickup</th>
+            <th>Dropoff</th>
+            <th>Detour</th>
+            <th>Match Score %</th>
+        </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
